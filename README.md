@@ -1,70 +1,90 @@
-# Getting Started with Create React App
+# CreditSentinel Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React UI for the CreditSentinel demo. The app supports mock-first development so the UI keeps working even when ngrok APIs are down.
 
-## Available Scripts
+## Quick start
 
-In the project directory, you can run:
+```bash
+npm install
+npm start
+```
 
-### `npm start`
+App runs at http://localhost:3000
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Configuration
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Edit the API base URLs and mock toggle in:
 
-### `npm test`
+- src/api/config.js
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Key settings:
 
-### `npm run build`
+- USE_MOCK: true or false
+- APPLICATIONS_API: Divya applications + score API base
+- REDFLAGS_API: Guru Prasad red flags API base
+- MEMO_API: Yuva Teja memo API base
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+When USE_MOCK is true, the UI uses local mock data and fallbacks. When false, it calls the live APIs and falls back to mocks if any request fails.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Mock data
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Mock data lives in:
 
-### `npm run eject`
+- src/mocks/mockData.js
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+It includes:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- mockApplications: application list
+- mockRedFlags: red flag responses by application_id
+- mockRiskScores: risk score responses by application_id
+- mockMemos: memo responses by application_id
+- defaultMockMemo: fallback memo if no match
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Main UI
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+The main React app is in:
 
-## Learn More
+- src/App.js
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Key screens and behaviors:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- Dashboard: shows summary counts
+- Applications: list view, click row to open detail
+- Application Detail:
+  - Risk score uses risk_score and risk_tier
+  - Risk score is shown as percent: (risk_score * 100).toFixed(1)
+  - Red flags show rule and evidence text
+  - Generate Memo calls /api/memo and renders sections in cards
+  - Memo uses a spinner while loading
+- Risk Score page: form submits to /api/score
 
-### Code Splitting
+## API contracts
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Expected responses used by the UI:
 
-### Analyzing the Bundle Size
+- /api/score
+  - risk_score (number between 0 and 1)
+  - risk_tier (Low, Medium, High)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- /api/redflags
+  - flags: array of { rule, evidence, severity }
 
-### Making a Progressive Web App
+- /api/memo
+  - supports either { sections: [ { title, content } ] } or key/value object
+  - UI normalizes common shapes into card sections
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Project structure
 
-### Advanced Configuration
+Top level:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- public/index.html: main HTML template
+- src/index.js: app bootstrap
+- src/index.css: global styles
+- src/App.js: main UI
+- src/api/config.js: API configuration
+- src/mocks/mockData.js: mock data
 
-### Deployment
+## Notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- If live APIs do not include income or loan fields in /api/applications, the list will show N/A unless you use mock mode.
+- If memo API is down, the UI falls back to mock memos automatically.
