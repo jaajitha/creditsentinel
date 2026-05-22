@@ -1,8 +1,13 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-
-const DIVYA_API_BASE = 'https://catacomb-stadium-phony.ngrok-free.dev'
-const GURU_API_BASE = 'https://eff3-2409-40f0-500a-b398-c93f-f072-d790-8250.ngrok-free.app'
+import { API_CONFIG } from './api/config'
+import {
+  mockApplications,
+  mockRedFlags,
+  mockMemos,
+  mockRiskScores,
+  defaultMockMemo
+} from './mocks/mockData'
 
 const apiFetch = (baseUrl, path, options = {}) => {
   const headers = {
@@ -14,6 +19,151 @@ const apiFetch = (baseUrl, path, options = {}) => {
     ...options,
     headers
   })
+}
+
+const buildPortfolioSummary = (applications) => {
+  const counts = { High:0, Medium:0, Low:0 }
+
+  applications.forEach((app) => {
+    if (counts[app.risk_tier] !== undefined) {
+      counts[app.risk_tier] += 1
+    }
+  })
+
+  return {
+    total_applications: applications.length,
+    high_risk_count: counts.High,
+    medium_risk_count: counts.Medium,
+    low_risk_count: counts.Low,
+    avg_risk_score: 0
+  }
+}
+
+const getMockApplicationById = (appId) =>
+  mockApplications.find((app) => app.application_id === appId) || null
+
+const fetchApplications = async () => {
+  if (API_CONFIG.USE_MOCK) {
+    return mockApplications
+  }
+
+  try {
+    const response = await apiFetch(API_CONFIG.APPLICATIONS_API, '/api/applications')
+
+    if (!response.ok) {
+      throw new Error('Applications API down')
+    }
+
+    const data = await response.json()
+    return data.applications || []
+  } catch (err) {
+    console.log('Applications API down, using mock')
+    return mockApplications
+  }
+}
+
+const fetchApplicationById = async (appId) => {
+  if (API_CONFIG.USE_MOCK) {
+    return getMockApplicationById(appId)
+  }
+
+  try {
+    const response = await apiFetch(API_CONFIG.APPLICATIONS_API, `/api/applications/${appId}`)
+
+    if (!response.ok) {
+      throw new Error('Application API down')
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.log('Application API down, using mock')
+    return getMockApplicationById(appId)
+  }
+}
+
+const fetchRedFlags = async (appId) => {
+  if (API_CONFIG.USE_MOCK) {
+    return mockRedFlags[appId] || { flag_count:0, flags:[] }
+  }
+
+  try {
+    const response = await apiFetch(API_CONFIG.REDFLAGS_API, '/api/redflags', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ application_id: appId })
+    })
+
+    if (!response.ok) {
+      throw new Error('Red flags API down')
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.log('Red flags API down, using mock')
+    return mockRedFlags[appId] || { flag_count:0, flags:[] }
+  }
+}
+
+const getFallbackRiskScore = (appId, fallbackTier) =>
+  mockRiskScores[appId] || { risk_score:0.6, risk_tier:fallbackTier || 'Medium' }
+
+const fetchRiskScore = async (payload, appId, fallbackTier) => {
+  if (API_CONFIG.USE_MOCK) {
+    return getFallbackRiskScore(appId, fallbackTier)
+  }
+
+  try {
+    const response = await apiFetch(API_CONFIG.APPLICATIONS_API, '/api/score', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      throw new Error('Risk score API down')
+    }
+
+    const scoreData = await response.json()
+
+    if (!scoreData || typeof scoreData !== 'object') {
+      return getFallbackRiskScore(appId, fallbackTier)
+    }
+
+    return {
+      ...scoreData,
+      risk_tier: scoreData.risk_tier || fallbackTier || 'Medium'
+    }
+  } catch (err) {
+    console.log('Risk score API down, using mock')
+    return getFallbackRiskScore(appId, fallbackTier)
+  }
+}
+
+const fetchMemo = async (appId) => {
+  if (API_CONFIG.USE_MOCK) {
+    return mockMemos[appId] || defaultMockMemo
+  }
+
+  try {
+    const response = await apiFetch(API_CONFIG.MEMO_API, '/api/memo', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify({ application_id: appId })
+    })
+
+    if (!response.ok) {
+      throw new Error('Memo API down')
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.log('Memo API down, using mock')
+    return mockMemos[appId] || defaultMockMemo
+  }
 }
 
 const nav = {
@@ -38,6 +188,77 @@ const rc = (r) =>
   r === 'Medium' ? '#B7791F' :
   '#C53030'
 
+const formatCurrency = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return 'N/A'
+  }
+
+  return Number(value).toLocaleString()
+}
+
+const formatRiskScore = (value) => {
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return 'N/A'
+  }
+
+  return `${(numericValue * 100).toFixed(1)}%`
+}
+
+const memoValueToText = (value) => {
+  if (value === null || value === undefined) {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => memoValueToText(item)).join('\n')
+  }
+
+  return JSON.stringify(value, null, 2)
+}
+
+const normalizeMemoSections = (memo) => {
+  if (!memo) {
+    return []
+  }
+
+  if (Array.isArray(memo)) {
+    return memo.map((section, index) => ({
+      title: section.title || section.heading || section.name || `Section ${index + 1}`,
+      content: memoValueToText(section.content || section.body || section.text || section)
+    }))
+  }
+
+  if (Array.isArray(memo.sections)) {
+    return memo.sections.map((section, index) => ({
+      title: section.title || section.heading || section.name || `Section ${index + 1}`,
+      content: memoValueToText(section.content || section.body || section.text || section)
+    }))
+  }
+
+  if (typeof memo === 'object') {
+    return Object.entries(memo)
+      .filter(([key, value]) => key !== 'application_id' && key !== 'sections' && value !== undefined)
+      .map(([key, value]) => ({
+        title: key.replace(/_/g, ' '),
+        content: memoValueToText(value)
+      }))
+  }
+
+  return []
+}
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 const Dashboard = () => {
   const [portfolio, setPortfolio] = useState({
     total_applications: 15000,
@@ -48,10 +269,15 @@ const Dashboard = () => {
   })
 
   useEffect(() => {
-    apiFetch(DIVYA_API_BASE, '/api/portfolio/summary')
+    if (API_CONFIG.USE_MOCK) {
+      setPortfolio(buildPortfolioSummary(mockApplications))
+      return
+    }
+
+    apiFetch(API_CONFIG.APPLICATIONS_API, '/api/portfolio/summary')
       .then((r) => r.json())
       .then((data) => setPortfolio(data))
-      .catch(() => {})
+      .catch(() => setPortfolio(buildPortfolioSummary(mockApplications)))
   }, [])
 
   return (
@@ -126,10 +352,18 @@ const Applications = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    apiFetch(DIVYA_API_BASE, '/api/applications')
-      .then((r) => r.json())
-      .then((data) => setApplications(data.applications || []))
-      .catch(() => setApplications([]))
+    let isMounted = true
+
+    fetchApplications()
+      .then((data) => {
+        if (isMounted) {
+          setApplications(data)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   return (
@@ -179,8 +413,8 @@ const Applications = () => {
             >
               <td style={{ padding:'10px 12px', fontSize:'13px', color:'#4A5568' }}>{a.application_id}</td>
               <td style={{ padding:'10px 12px', fontSize:'13px' }}>{a.applicant_name}</td>
-              <td style={{ padding:'10px 12px', fontSize:'13px' }}>₹{a.monthly_income.toLocaleString()}</td>
-              <td style={{ padding:'10px 12px', fontSize:'13px' }}>₹{a.requested_loan_amount.toLocaleString()}</td>
+              <td style={{ padding:'10px 12px', fontSize:'13px' }}>₹{formatCurrency(a.monthly_income)}</td>
+              <td style={{ padding:'10px 12px', fontSize:'13px' }}>₹{formatCurrency(a.requested_loan_amount)}</td>
               <td style={{ padding:'10px 12px', fontSize:'13px' }}>{a.foir}%</td>
               <td style={{
                 padding:'10px 12px',
@@ -200,40 +434,43 @@ const ApplicationDetail = () => {
   const { id } = useParams()
   const [application, setApplication] = useState(null)
   const [riskResult, setRiskResult] = useState(null)
-  const [redFlags, setRedFlags] = useState([])
+  const [redFlags, setRedFlags] = useState({ flag_count:0, flags:[] })
+  const [memoData, setMemoData] = useState(null)
+  const [memoLoading, setMemoLoading] = useState(false)
+  const [memoError, setMemoError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchDetail() {
       try {
-        const response = await apiFetch(DIVYA_API_BASE, `/api/applications/${id}`)
-        const data = await response.json()
+        setMemoData(null)
+        setMemoLoading(false)
+        setMemoError('')
+
+        const data = await fetchApplicationById(id)
         setApplication(data)
 
-        if (data) {
-          const scoreResponse = await apiFetch(DIVYA_API_BASE, '/api/score', {
-            method:'POST',
-            headers:{
-              'Content-Type':'application/json'
-            },
-            body:JSON.stringify({
-              application_id:data.application_id,
-              monthly_income:data.monthly_income,
-              requested_loan_amount:data.requested_loan_amount,
-              existing_monthly_emi:data.existing_monthly_emi || 0,
-              employment_type:data.employment_type || 'Salaried',
-              employment_years:data.employment_years || 1,
-              foir:data.foir,
-              loan_to_income_ratio:data.loan_to_income_ratio || 0.6,
-              is_night_application:data.is_night_application || 0,
-              cibil_score:data.cibil_score || 700,
-              num_credit_inquiries_30d:data.num_credit_inquiries_30d || 0,
-              has_previous_default:data.has_previous_default || 0,
-              credit_utilization_pct:data.credit_utilization_pct || 40
-            })
-          })
+        const flagsData = await fetchRedFlags(id)
+        setRedFlags(flagsData)
 
-          const scoreData = await scoreResponse.json()
+        if (data) {
+          const scorePayload = {
+            application_id:data.application_id,
+            monthly_income:data.monthly_income,
+            requested_loan_amount:data.requested_loan_amount,
+            existing_monthly_emi:data.existing_monthly_emi || 0,
+            employment_type:data.employment_type || 'Salaried',
+            employment_years:data.employment_years || 1,
+            foir:data.foir,
+            loan_to_income_ratio:data.loan_to_income_ratio || 0.6,
+            is_night_application:data.is_night_application || 0,
+            cibil_score:data.cibil_score || 700,
+            num_credit_inquiries_30d:data.num_credit_inquiries_30d || 0,
+            has_previous_default:data.has_previous_default || 0,
+            credit_utilization_pct:data.credit_utilization_pct || 40
+          }
+
+          const scoreData = await fetchRiskScore(scorePayload, data.application_id, data.risk_tier)
           setRiskResult(scoreData)
         }
       } catch (err) {
@@ -246,19 +483,29 @@ const ApplicationDetail = () => {
     fetchDetail()
   }, [id])
 
-  useEffect(() => {
-    if (!id) return
-    apiFetch(GURU_API_BASE, '/api/redflags', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        application_id: id
-      })
-    })
-    .then((r) => r.json())
-    .then((data) => setRedFlags(data.flags || []))
-    .catch(() => setRedFlags([]))
-  }, [id])
+  const memoSections = normalizeMemoSections(memoData)
+
+  const handleGenerateMemo = async () => {
+    if (!application?.application_id) {
+      return
+    }
+
+    setMemoLoading(true)
+    setMemoError('')
+
+    try {
+      const [memo] = await Promise.all([
+        fetchMemo(application.application_id),
+        delay(400)
+      ])
+      setMemoData(memo)
+    } catch (err) {
+      console.log(err)
+      setMemoError('Unable to generate memo right now.')
+    } finally {
+      setMemoLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -297,8 +544,8 @@ const ApplicationDetail = () => {
         <h3>{application.applicant_name}</h3>
 
         <p><strong>Application ID:</strong> {application.application_id}</p>
-        <p><strong>Income:</strong> ₹{application.monthly_income.toLocaleString()}</p>
-        <p><strong>Loan Amount:</strong> ₹{application.requested_loan_amount.toLocaleString()}</p>
+        <p><strong>Income:</strong> ₹{formatCurrency(application.monthly_income)}</p>
+        <p><strong>Loan Amount:</strong> ₹{formatCurrency(application.requested_loan_amount)}</p>
         <p><strong>FOIR:</strong> {application.foir}%</p>
         <p><strong>CIBIL:</strong> {application.cibil_score || 'N/A'}</p>
       </div>
@@ -315,7 +562,7 @@ const ApplicationDetail = () => {
         {riskResult && (
           <>
             <h2 style={{ color:rc(riskResult.risk_tier) }}>
-              {riskResult.risk_score}
+              {formatRiskScore(riskResult.risk_score)}
             </h2>
 
             <p style={{
@@ -338,8 +585,13 @@ const ApplicationDetail = () => {
         <h3>Red Flags</h3>
 
         <ul>
-          {redFlags.map((flag, index) => (
-            <li key={index}>{flag}</li>
+          {(redFlags?.flags || []).length === 0 && (
+            <li>No red flags found</li>
+          )}
+          {(redFlags?.flags || []).map((flag) => (
+            <li key={`${flag.rule}-${flag.evidence}`}>
+              {flag.rule} - {flag.evidence}
+            </li>
           ))}
         </ul>
       </div>
@@ -354,18 +606,57 @@ const ApplicationDetail = () => {
         <h3>Credit Memo</h3>
 
         <button
-          onClick={() => alert('Memo API integration coming soon')}
+          onClick={handleGenerateMemo}
+          disabled={memoLoading}
           style={{
             background:'#1B2A4A',
             color:'white',
             padding:'12px 24px',
             border:'none',
             borderRadius:'6px',
-            cursor:'pointer'
+            cursor:memoLoading ? 'default' : 'pointer',
+            opacity:memoLoading ? 0.7 : 1,
+            display:'inline-flex',
+            alignItems:'center',
+            gap:'8px'
           }}
         >
-          Generate Memo
+          {memoLoading && <span className="spinner" aria-hidden="true" />}
+          {memoLoading ? 'Generating...' : 'Generate Memo'}
         </button>
+
+        {memoError && (
+          <p style={{ marginTop:'12px', color:'#C53030' }}>
+            {memoError}
+          </p>
+        )}
+
+        {memoSections.length > 0 && (
+          <div style={{
+            marginTop:'16px',
+            display:'grid',
+            gap:'12px',
+            gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))'
+          }}>
+            {memoSections.map((section, index) => (
+              <div
+                key={`${section.title}-${index}`}
+                style={{
+                  background:'#F4F6F9',
+                  padding:'16px',
+                  borderRadius:'6px'
+                }}
+              >
+                <h4 style={{ margin:'0 0 8px', color:'#1B2A4A' }}>
+                  {section.title}
+                </h4>
+                <p style={{ margin:0, color:'#4A5568', whiteSpace:'pre-wrap' }}>
+                  {section.content}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -389,19 +680,12 @@ const RiskScore = () => {
   const getScore = () => {
     setLoading(true)
 
-    apiFetch(DIVYA_API_BASE, '/api/score', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify(form)
-    })
-    .then((r) => r.json())
-    .then((data) => {
-      setResult(data)
-      setLoading(false)
-    })
-    .catch(() => setLoading(false))
+    fetchRiskScore(form, form.application_id, 'Medium')
+      .then((data) => {
+        setResult(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }
 
   return (
@@ -455,7 +739,7 @@ const RiskScore = () => {
               Risk Score
             </p>
             <h2 style={{ margin:'0 0 8px', color:rc(result.risk_tier), fontSize:'36px' }}>
-              {result.risk_score}
+              {formatRiskScore(result.risk_score)}
             </h2>
             <p style={{ margin:0, fontWeight:'bold', color:rc(result.risk_tier) }}>
               {result.risk_tier} Risk
