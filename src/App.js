@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { API_CONFIG } from './api/config'
+import DecisionPanel from './components/DecisionPanel'
 import {
   mockApplications,
   mockRedFlags,
@@ -282,16 +283,31 @@ const Dashboard = () => {
 })
 
   useEffect(() => {
-    if (API_CONFIG.USE_MOCK) {
-      setPortfolio(buildPortfolioSummary(mockApplications))
-      return
-    }
+  if (API_CONFIG.USE_MOCK) {
+    setPortfolio(buildPortfolioSummary(mockApplications))
+    return
+  }
 
-    apiFetch(API_CONFIG.APPLICATIONS_API, '/api/portfolio/summary')
-      .then((r) => r.json())
-      .then((data) => setPortfolio(data))
-      .catch(() => setPortfolio(buildPortfolioSummary(mockApplications)))
-  }, [])
+  const cachedData = localStorage.getItem('dashboardSummary')
+
+  if (cachedData) {
+    setPortfolio(JSON.parse(cachedData))
+  }
+
+  apiFetch(API_CONFIG.APPLICATIONS_API, '/api/portfolio/summary')
+    .then((r) => r.json())
+    .then((data) => {
+      setPortfolio(data)
+
+      localStorage.setItem(
+        'dashboardSummary',
+        JSON.stringify(data)
+      )
+    })
+    .catch(() => {
+      setPortfolio(buildPortfolioSummary(mockApplications))
+    })
+}, [])
 
   return (
     <div style={{
@@ -367,25 +383,36 @@ const Applications = () => {
 
   const itemsPerPage = 10
   const navigate = useNavigate()
-
+  const [pageCache, setPageCache] = useState({})
   useEffect(() => {
-    let isMounted = true
+  let isMounted = true
 
-    const offset = (currentPage - 1) * itemsPerPage
-    fetchApplications(itemsPerPage, offset)
-      .then((data) => {
-        if (isMounted) {
-          setTotalApplications(data.total)
+  const offset = (currentPage - 1) * itemsPerPage
 
-          setApplications(data.applications)
-        }
-      })
+  // Check cache first
+  if (pageCache[currentPage]) {
+    setTotalApplications(pageCache[currentPage].total)
+    setApplications(pageCache[currentPage].applications)
+    return
+  }
 
-    return () => {
-      isMounted = false
-    }
-  }, [currentPage])
+  fetchApplications(itemsPerPage, offset)
+    .then((data) => {
+      if (isMounted) {
+        setTotalApplications(data.total)
+        setApplications(data.applications)
 
+        setPageCache((prev) => ({
+          ...prev,
+          [currentPage]: data
+        }))
+      }
+    })
+
+  return () => {
+    isMounted = false
+  }
+}, [currentPage, pageCache])
   return (
     <div style={{
       padding:'40px',
@@ -489,6 +516,7 @@ const Applications = () => {
 
 const ApplicationDetail = () => {
   const { id } = useParams()
+  console.log("Route ID:", id)
   const [application, setApplication] = useState(null)
   const [riskResult, setRiskResult] = useState(null)
   const [redFlags, setRedFlags] = useState({ flag_count:0, flags:[] })
@@ -497,19 +525,70 @@ const ApplicationDetail = () => {
   const [memoError, setMemoError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchDetail() {
+ useEffect(() => {
+  console.log("useEffect running")
+
+  async function fetchDetail() {
+    console.log("fetchDetail started")
+      const cacheKey = `detail_${id}`
+
+const cached = localStorage.getItem(cacheKey)
+
+if (cached) {
+  const parsed = JSON.parse(cached)
+
+  setApplication(parsed.application)
+  setRedFlags(parsed.redFlags)
+  if (parsed.application) {
+  const scorePayload = {
+    application_id: parsed.application.application_id,
+    monthly_income: parsed.application.monthly_income,
+    requested_loan_amount: parsed.application.requested_loan_amount,
+    existing_monthly_emi: parsed.application.existing_monthly_emi || 0,
+    employment_type: parsed.application.employment_type || 'Salaried',
+    employment_years: parsed.application.employment_years || 1,
+    foir: parsed.application.foir,
+    loan_to_income_ratio: parsed.application.loan_to_income_ratio || 0.6,
+    is_night_application: parsed.application.is_night_application || 0,
+    cibil_score: parsed.application.cibil_score ?? 700,
+    num_credit_inquiries_30d:
+      parsed.application.num_credit_inquiries_30d || 0,
+    has_previous_default:
+      parsed.application.has_previous_default || 0,
+    credit_utilization_pct:
+      parsed.application.credit_utilization_pct || 40
+  }
+
+  const scoreData = await fetchRiskScore(
+    scorePayload,
+    parsed.application.application_id,
+    'Medium'
+  )
+
+  setRiskResult(scoreData)
+}
+  setLoading(false)
+  return
+}
       try {
         setMemoData(null)
         setMemoLoading(false)
         setMemoError('')
 
-        const data = await fetchApplicationById(id)
-        setApplication(data)
+        const [data, flagsData] = await Promise.all([
+  fetchApplicationById(id),
+  fetchRedFlags(id)
+])
 
-        const flagsData = await fetchRedFlags(id)
-        setRedFlags(flagsData)
-
+setApplication(data)
+setRedFlags(flagsData)
+localStorage.setItem(
+  cacheKey,
+  JSON.stringify({
+    application: data,
+    redFlags: flagsData
+  })
+)
         if (data) {
           const scorePayload = {
             application_id:data.application_id,
@@ -521,14 +600,20 @@ const ApplicationDetail = () => {
             foir:data.foir,
             loan_to_income_ratio:data.loan_to_income_ratio || 0.6,
             is_night_application:data.is_night_application || 0,
-            cibil_score:data.cibil_score || 700,
+            cibil_score:data.cibil_score ?? 700,
             num_credit_inquiries_30d:data.num_credit_inquiries_30d || 0,
             has_previous_default:data.has_previous_default || 0,
             credit_utilization_pct:data.credit_utilization_pct || 40
           }
-
-          const scoreData = await fetchRiskScore(scorePayload, data.application_id, data.risk_tier)
-          setRiskResult(scoreData)
+          console.log("BEFORE SCORE API")
+          console.log("CACHE SCORE PAYLOAD", scorePayload)
+          const scoreData = await fetchRiskScore(
+  scorePayload,
+  data.application_id,
+  'Medium'
+)
+          console.log("AFTER SCORE API", scoreData)
+setRiskResult(scoreData)
         }
       } catch (err) {
         console.log(err)
@@ -681,6 +766,10 @@ const ApplicationDetail = () => {
 ))}
         </ul>
       </div>
+<DecisionPanel
+  applicationId={application?.application_id}
+  onDecision={(data) => console.log(data)}
+/>
 
       <div style={{
         background:'white',
@@ -689,6 +778,7 @@ const ApplicationDetail = () => {
         marginTop:'20px',
         boxShadow:'0 2px 6px rgba(0,0,0,0.1)'
       }}>
+        
         <h3>Credit Memo</h3>
 
         <button
