@@ -7,6 +7,6 @@ export const API_CONFIG = {
   REDFLAGS_API:
     'https://creditsentinel-ep7x.onrender.com',
 
-  MEMO_API:
-    'https://creditsentinel-6op4.onrender.com',
+   MEMO_API:
+    'https://creditsentinel-kkg7.onrender.com',
 }

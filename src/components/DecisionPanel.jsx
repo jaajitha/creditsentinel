@@ -62,7 +62,7 @@ const fetchHistory = async () => {
     setHistoryLoading(false)
   }
 }
-
+console.log("Current Applicant:", applicationId)
 useEffect(() => {
   fetchHistory()
   // eslint-disable-next-line react-hooks/exhaustive-deps

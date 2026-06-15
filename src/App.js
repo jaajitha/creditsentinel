@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'reac
 import { useEffect, useState } from 'react'
 import { API_CONFIG } from './api/config'
 import DecisionPanel from './components/DecisionPanel'
+import ApprovalDashboard from './pages/ApprovalDashboard';
 import {
   mockApplications,
   mockRedFlags,
@@ -975,6 +976,7 @@ function App() {
           <h2 style={{ color:'white' }}>CreditSentinel</h2>
           <Link to="/" style={lnk}>Dashboard</Link>
           <Link to="/applications" style={lnk}>Applications</Link>
+          <Link to="/dashboard/approvals" style={lnk}>Approval Dashboard</Link>
           <Link to="/risk" style={lnk}>Risk Score</Link>
           <Link to="/reports" style={lnk}>Reports</Link>
         </div>
@@ -984,8 +986,14 @@ function App() {
           <Route path="/applications" element={<Applications />} />
           <Route path="/application/:id" element={<ApplicationDetail />} />
           <Route path="/risk" element={<RiskScore />} />
-          <Route path="/reports" element={<Reports />} />
-        </Routes>
+<Route path="/reports" element={<Reports />} />
+
+<Route
+  path="/dashboard/approvals"
+  element={<ApprovalDashboard />}
+/>
+
+</Routes>
       </div>
     </BrowserRouter>
   )
