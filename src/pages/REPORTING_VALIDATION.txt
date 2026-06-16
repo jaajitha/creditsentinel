@@ -1,0 +1,37 @@
+CreditSentinel Reporting Validation
+==================================
+
+PDF Export Validation
+---------------------
+Test 1:
+Date Range: Last 7 Days
+Result: PASS
+
+Test 2:
+Date Range: Last 30 Days
+Result: PASS
+
+Test 3:
+Date Range: All Applications
+Result: PASS
+
+CSV Export Validation
+---------------------
+Applications Exported: 100
+Result: PASS
+
+Trend Chart Validation
+----------------------
+Weekly Approval Trend Chart Rendered Successfully
+Days Displayed: 7
+Result: PASS
+
+Summary
+-------
+PDF Export: PASS
+CSV Export: PASS
+Trend Chart: PASS
+
+Validated By:
+P Jaajitha Reddy
+Week 6 Day 2

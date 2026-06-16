@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { API_CONFIG } from '../api/config';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 const ApprovalDashboard = () => {
   const [applications, setApplications] = useState([]);
@@ -9,6 +20,15 @@ const ApprovalDashboard = () => {
   const [history, setHistory] = useState([]);
 const [selectedApp, setSelectedApp] = useState(null);
 const [lastUpdated, setLastUpdated] = useState(new Date());
+const trendData = [
+  { day: 'Mon', approvals: 12 },
+  { day: 'Tue', approvals: 18 },
+  { day: 'Wed', approvals: 15 },
+  { day: 'Thu', approvals: 22 },
+  { day: 'Fri', approvals: 20 },
+  { day: 'Sat', approvals: 10 },
+  { day: 'Sun', approvals: 14 }
+];
  useEffect(() => {
   fetchApplications();
 }, []);
@@ -106,6 +126,36 @@ const exportCSV = () => {
 
   link.click();
 };
+const exportPDF = () => {
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.text('Loan Approval Report', 14, 20);
+
+  doc.setFontSize(12);
+  doc.text(`Total Applications: ${totalApplications}`, 14, 35);
+  doc.text(`Approved: ${approvedCount}`, 14, 45);
+  doc.text(`Rejected: ${rejectedCount}`, 14, 55);
+  doc.text(`Under Review: ${reviewCount}`, 14, 65);
+
+  autoTable(doc, {
+    startY: 80,
+    head: [[
+      'Application ID',
+      'Applicant',
+      'Loan Amount',
+      'Status'
+    ]],
+    body: filteredApplications.map(app => [
+      app.application_id,
+      app.applicant_name,
+      app.loan_amount,
+      app.application_status
+    ])
+  });
+
+  doc.save('approval-report.pdf');
+};
   return (
     <div style={{ padding: '24px' }}>
       <h1 style={{ marginBottom: '20px' }}>
@@ -179,7 +229,7 @@ const exportCSV = () => {
                 {reviewCount}
               </h1>
             </div>
-
+             
             <div
               style={{
                 background: '#fff',
@@ -194,7 +244,33 @@ const exportCSV = () => {
               </h1>
             </div>
           </div>
+<h2 style={{ marginTop: '40px' }}>
+  Weekly Approval Trend
+</h2>
 
+<div
+  style={{
+    background: '#fff',
+    padding: '20px',
+    borderRadius: '8px',
+    marginTop: '20px',
+    marginBottom: '40px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+  }}
+>
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={trendData}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="day" />
+      <YAxis />
+      <Tooltip />
+      <Line
+        type="monotone"
+        dataKey="approvals"
+      />
+    </LineChart>
+  </ResponsiveContainer>
+</div>
           <div
   style={{
     display: 'flex',
@@ -218,6 +294,21 @@ const exportCSV = () => {
   >
     Export CSV
   </button>
+  <button
+  onClick={exportPDF}
+  style={{
+    background: '#dc3545',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    marginLeft: '10px'
+  }}
+>
+  Export PDF
+</button>
+  
 </div>
 <input
   type="text"
