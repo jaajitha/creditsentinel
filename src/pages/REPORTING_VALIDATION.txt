@@ -31,6 +31,21 @@ Summary
 PDF Export: PASS
 CSV Export: PASS
 Trend Chart: PASS
+Enhanced Export Validation
+--------------------------
+
+Decision History:
+Available from history endpoint
+Result: PASS
+
+Approval Reason:
+Mapped from notes field
+Result: PASS
+
+Analyst Name:
+Not available from API response
+Marked as N/A
+Result: API Limitation
 
 Validated By:
 P Jaajitha Reddy

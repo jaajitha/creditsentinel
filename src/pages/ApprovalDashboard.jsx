@@ -68,6 +68,24 @@ setApplications(data.applications || []);
     console.error(err);
   }
 };
+const getLatestHistory = async (applicationId) => {
+  try {
+    const response = await fetch(
+      `${API_CONFIG.APPLICATIONS_API}/api/applications/${applicationId}/history`
+    );
+
+    const data = await response.json();
+
+    if (data.history && data.history.length > 0) {
+      return data.history[0];
+    }
+
+    return null;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+};
   const totalApplications = applications.length;
 
   const approvedCount = applications.filter(
@@ -93,21 +111,34 @@ setApplications(data.applications || []);
 
   return matchesStatus && matchesSearch;
 });
-const exportCSV = () => {
+const exportCSV = async () => {
   const headers = [
-    'Application ID',
-    'Applicant Name',
-    'Loan Amount',
-    'Status'
-  ];
+  'Application ID',
+  'Applicant Name',
+  'Loan Amount',
+  'Status',
+  'Analyst Name',
+  'Decision History',
+  'Approval Reason'
+];
+  
+ const rows = await Promise.all(
+  filteredApplications.map(async (app) => {
+    const history = await getLatestHistory(
+      app.application_id
+    );
 
-  const rows = filteredApplications.map((app) => [
-    app.application_id,
-    app.applicant_name,
-    app.loan_amount,
-    app.application_status
-  ]);
-
+   return [
+  app.application_id,
+  app.applicant_name,
+  app.loan_amount,
+  app.application_status,
+  history?.analyst_name || 'N/A',
+  history?.decision || '',
+  history?.notes || ''
+];
+  })
+);
   const csvContent =
     [headers, ...rows]
       .map((row) => row.join(','))
@@ -171,7 +202,7 @@ const exportPDF = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
+             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
               gap: '16px',
               marginTop: '20px'
             }}
@@ -282,7 +313,8 @@ const exportPDF = () => {
   <h2>Applications by Status</h2>
 
   <button
-    onClick={exportCSV}
+  aria-label="Export applications as CSV"
+  onClick={exportCSV}
     style={{
       background: '#28a745',
       color: '#fff',
@@ -295,6 +327,7 @@ const exportPDF = () => {
     Export CSV
   </button>
   <button
+  aria-label="Export applications as PDF"
   onClick={exportPDF}
   style={{
     background: '#dc3545',
@@ -311,6 +344,7 @@ const exportPDF = () => {
   
 </div>
 <input
+  aria-label="Search applicant name"
   type="text"
   placeholder="Search applicant name..."
   value={searchTerm}
@@ -326,6 +360,7 @@ const exportPDF = () => {
 
 <div style={{ marginTop: '15px' }}>
   <select
+  aria-label="Filter applications by status"
     value={statusFilter}
     onChange={(e) => setStatusFilter(e.target.value)}
     style={{
@@ -341,19 +376,21 @@ const exportPDF = () => {
   </select>
 </div>
           <div
-            style={{
-              background: '#fff',
-              padding: '20px',
-              borderRadius: '8px',
-              marginTop: '20px',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
-            }}
+           style={{
+  background: '#fff',
+  padding: '20px',
+  borderRadius: '8px',
+  marginTop: '20px',
+  boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+  overflowX: 'auto'
+}}
           >
             <table
               style={{
-                width: '100%',
-                borderCollapse: 'collapse'
-              }}
+  width: '100%',
+  minWidth: '900px',
+  borderCollapse: 'collapse'
+}}
             >
               <thead>
                 <tr
