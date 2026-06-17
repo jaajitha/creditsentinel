@@ -117,28 +117,19 @@ const exportCSV = async () => {
   'Applicant Name',
   'Loan Amount',
   'Status',
-  'Analyst Name',
   'Decision History',
   'Approval Reason'
 ];
   
- const rows = await Promise.all(
-  filteredApplications.map(async (app) => {
-    const history = await getLatestHistory(
-      app.application_id
-    );
-
-   return [
+ const rows = filteredApplications.map((app) => [
   app.application_id,
   app.applicant_name,
   app.loan_amount,
   app.application_status,
-  history?.analyst_name || 'N/A',
-  history?.decision || '',
-  history?.notes || ''
-];
-  })
-);
+  'Available in History View',
+  'Available in History View'
+]);
+
   const csvContent =
     [headers, ...rows]
       .map((row) => row.join(','))

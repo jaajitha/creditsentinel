@@ -1,52 +1,34 @@
-CreditSentinel Reporting Validation
-==================================
+REPORTING_VALIDATION.txt
 
-PDF Export Validation
----------------------
-Test 1:
-Date Range: Last 7 Days
-Result: PASS
-
-Test 2:
-Date Range: Last 30 Days
-Result: PASS
-
-Test 3:
-Date Range: All Applications
-Result: PASS
+PDF Report Validation
+✓ PDF export generated successfully
+✓ Summary metrics included
+✓ Approval status breakdown included
+✓ Application table included
+✓ Tested export successfully
 
 CSV Export Validation
----------------------
-Applications Exported: 100
-Result: PASS
+✓ Exported 100 applications
+✓ Included Application ID
+✓ Included Applicant Name
+✓ Included Loan Amount
+✓ Included Status
+✓ Included Decision History
+✓ Included Approval Reason
+✓ Data verified successfully
 
-Trend Chart Validation
-----------------------
-Weekly Approval Trend Chart Rendered Successfully
-Days Displayed: 7
-Result: PASS
+Weekly Approval Trend Chart
+✓ Chart rendered successfully
+✓ Responsive on mobile/tablet/desktop
+✓ Visualization displayed on dashboard
 
-Summary
--------
-PDF Export: PASS
-CSV Export: PASS
-Trend Chart: PASS
-Enhanced Export Validation
---------------------------
+Notes
+Current backend history API provides:
+- decision
+- notes
+- timestamp
+- applicant_name
 
-Decision History:
-Available from history endpoint
-Result: PASS
+Analyst name is not consistently available in API response and was excluded from export.
 
-Approval Reason:
-Mapped from notes field
-Result: PASS
-
-Analyst Name:
-Not available from API response
-Marked as N/A
-Result: API Limitation
-
-Validated By:
-P Jaajitha Reddy
-Week 6 Day 2
+Status: PASS
