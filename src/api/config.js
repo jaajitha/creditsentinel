@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  USE_MOCK: false,
+  USE_MOCK: true,
 
   APPLICATIONS_API:
 'https://creditsentinel-api-1.onrender.com',
