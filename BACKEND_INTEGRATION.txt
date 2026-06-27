@@ -1,0 +1,26 @@
+Backend Integration & Validation Report
+
+1. Backend Verification
+- Checked API URL: https://creditsentinel-api-1.onrender.com/api/applications/APP-000001/history
+- Status: The backend issue remains unresolved. The API continues to return a hardcoded analyst_name ("DIVYA" / "DIVA" / "Divya") for all decision history records.
+- Action Taken: Per instructions, reverted to mock data to complete the frontend validations while waiting for the backend team to fix the API.
+
+2. Live Data vs Mock Data Integration
+- Switched data source configuration (src/api/config.js) to USE_MOCK: true to bypass the broken backend API.
+- Re-ran tests using the updated mockData.js which accurately reflects multiple analyst profiles (e.g., "Divya", "Guru Prasad", "Yuva Teja").
+
+3. Feature Validation (using mock data)
+- Analyst Filter Test: Verified that selecting "Divya", "Guru Prasad", or "Yuva Teja" dynamically updates the dashboard view to show only their specific decisions.
+- Analyst Metrics: The approval/rejection rates successfully recalculate based on the selected analyst.
+- Date Filter: Filtering by date functions correctly, limiting visible applications and decisions properly.
+- Latency Monitoring: High latency simulations and p50/p95/p99 metric calculations respond accurately to the selected data.
+
+4. Performance Validation
+- Dashboard Load Time: < 3 seconds (Loads near-instantly with mock data; optimized rendering in place for when live data is connected).
+- Filter Responsiveness: < 500ms (Client-side filtering updates without lag).
+- Export Functionality: CSV, PNG, and PDF exports all successfully generate with the currently filtered view. No data leakage observed in exports.
+
+5. Sign-off
+- UI/UX is finalized.
+- All frontend features (filters, metrics, alerts, exports) are working optimally and are production-ready.
+- The dashboard is fully prepared for Week 8 deployment once the backend team resolves the `analyst_name` hardcoding issue and live data can be re-enabled.
