@@ -563,7 +563,7 @@ const chartImage = canvas.toDataURL('image/png');
       border: '1px solid #ffeeba'
     }}
   >
-    ⚠ Alert: Approval rate below target (37%)
+    ⚠ Alert: Approval rate below target ({approvalRate}%)
   </div>
 )}
 
@@ -578,7 +578,7 @@ const chartImage = canvas.toDataURL('image/png');
       border: '1px solid #f5c6cb'
     }}
   >
-    ⚠ Alert:  Rejection rate above target (30%)
+    ⚠ Alert: Rejection rate above target ({rejectionRate}%)
   </div>
   
 )}

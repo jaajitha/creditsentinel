@@ -46,7 +46,10 @@ const getMockApplicationById = (appId) =>
 
 const fetchApplications = async (limit = 10, offset = 0) => {
   if (API_CONFIG.USE_MOCK) {
-    return mockApplications
+    return {
+      total: mockApplications.length,
+      applications: mockApplications.slice(offset, offset + limit)
+    }
   } 
 
   try {
@@ -65,7 +68,7 @@ const fetchApplications = async (limit = 10, offset = 0) => {
     console.log('Applications API down, using mock')
     return {
       total: mockApplications.length,
-      applications: mockApplications
+      applications: mockApplications.slice(offset, offset + limit)
     }
   }
 }
